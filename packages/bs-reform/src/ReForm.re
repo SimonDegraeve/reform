@@ -3,24 +3,26 @@ module type Config = {
   type state;
   let set: (state, field('a), 'a) => state;
   let get: (state, field('a)) => 'a;
+  type error;
 };
 type fieldState =
   | Pristine
   | Valid
   | Error(string);
-type formState =
-  | Dirty
-  | Submitting
+type formState('error) =
   | Pristine
+  | Dirty
   | Errored
-  | SubmitFailed(option(string))
-  | Valid;
+  | Valid
+  | Submitting
+  | SubmitFailed(option('error));
+
 module Make = (Config: Config) => {
   module ReSchema = ReSchema.Make(Config);
   module Validation = ReSchema.Validation;
 
   type field = ReSchema.field;
-  type nonrec formState = formState;
+  type nonrec formState = formState(Config.error);
 
   type action =
     | ValidateField(field)
@@ -38,7 +40,7 @@ module Make = (Config: Config) => {
     | ResetForm
     | SetValues(Config.state)
     | SetFieldValue(Config.field('a), 'a): action
-    | RaiseSubmitFailed(option(string));
+    | RaiseSubmitFailed(option(Config.error));
 
   type state = {
     formState,
@@ -68,13 +70,13 @@ module Make = (Config: Config) => {
     validateField: field => unit,
     validateForm: unit => unit,
     validateFields: array(field) => array(fieldState),
-    raiseSubmitFailed: option(string) => unit,
+    raiseSubmitFailed: option(Config.error) => unit,
   };
 
   type onSubmitAPI = {
     send: action => unit,
     state,
-    raiseSubmitFailed: option(string) => unit,
+    raiseSubmitFailed: option(Config.error) => unit,
   };
 
   type fieldInterface('value) = {
